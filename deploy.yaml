@@ -1,0 +1,61 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: hug-apiserver
+  namespace: kube-system
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: hug-apiserver
+    spec:
+      containers:
+        - name: hug
+          image: [resistry-url]:5000/[system-account]/[image]:[version]
+          volumeMounts:
+          - mountPath: "/hug"
+            name: hug
+          - mountPath: "/root/.ssh"
+            name: ssh
+          ports:
+          - containerPort: 8000
+            #hostPort: 8000
+          env:
+          - name: "HUG_BASIC_USER"
+            value: "apiuser"
+          - name: "HUG_BASIC_PASSWORD"
+            value: "apiuserpassword"
+          - name: "KUBECTL_HOST"
+            value: [master host ip]
+          - name: "HUG_SRC_ROOT"
+            value: "/hug"
+          - name: "WORK_HOST"
+            value: [work host ip]
+          - name: "PV_ROOT"
+            value: "/pv"
+      volumes:
+        - name: hug
+          hostPath:
+            path: "/hug"
+        - name: ssh
+          hostPath:
+            path: "/root/.ssh"
+      imagePullSecrets:
+        - name: myregistrykey
+      nodeSelector:
+        kubernetes.io/hostname: [master hostname]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hug-apiserver
+  labels:
+    app: hug-apiserver
+  namespace: kube-system
+spec:
+  ports:
+  - port: 8000
+  selector:
+    app: hug-apiserver
+  clusterIP: {{ hug-apiserver_ip }}
