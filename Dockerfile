@@ -1,8 +1,4 @@
-FROM python:3.6.0-slim
+FROM python:3.7.2-slim
 RUN pip install hug
-RUN apt-get update
-RUN apt-get -y install openssh-client
-RUN cd /root
-RUN mkdir /root/.ssh
-RUN sed -i 's/GSSAPI/#GSSAPI/g' /etc/ssh/ssh_config
-CMD hug -f /hug/apiserver.py
+COPY apiserver.py /
+CMD hug -f /apiserver.py
