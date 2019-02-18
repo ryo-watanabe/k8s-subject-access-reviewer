@@ -4,12 +4,14 @@ import datetime
 
 logging.basicConfig(level=logging.DEBUG)
 
-def post_log(path, body):
-    d = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
-    logging.info(" [" + d + "] POST " + path + " " + str(body))
+def log(str):
+  d = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
+  logging.info(" [" + d + "] " + str)
 
-DENY_NAMESPACES = ["kube-system","cattle-system","ingress-nginx","kube-public"]
-DENY_USERS = ["system:serviceaccount:default:hatoba-user"]
+DENY_NAMESPACES = ["kube-system","kube-public"]
+ALLOW_CLUSTER_RESOURCES = ["clusterrolebindings"]
+DENY_LIST_CLUSTER_RESOURCES = []
+TARGET_USERS = ["system:serviceaccount:default:remote-user"]
 
 #-------------------------------------
 # REVIEW
@@ -19,37 +21,82 @@ DENY_USERS = ["system:serviceaccount:default:hatoba-user"]
 def review(body):
 
     # リクエストログ出力
-    post_log("/review", body)
+    log("Request : " + str(body))
 
     ret = {
         "apiVersion": "authorization.k8s.io/v1beta1",
         "kind": "SubjectAccessReview",
         "status": {
-            "allowed": True
+            "allowed": False
         }
     }
 
-    if "apiVersion" not in body or body["apiVersion"] != "authorization.k8s.io/v1beta1":
-        ret["status"] = {"allowed": False, "reason": "Review format error"}
-        return ret
+    # When user in TARGET-USERS
+    if "spec" in body and "user" in body["spec"] and body["spec"]["user"] in TARGET_USERS:
+        # Non resource path
+        if "nonResourceAttributes" in body["spec"]:
+            ret["status"] = {
+                "allowed": True
+            }
 
-    if "kind" not in body or body["kind"] != "SubjectAccessReview":
-        ret["status"] = {"allowed": False, "reason": "Review format error"}
-        return ret
+        if "resourceAttributes" in body["spec"]:
+            # Get params
+            ra = body["spec"]["resourceAttributes"]
 
-    # Allow Non-Resource requests
-    if "spec" in body and "nonResourceAttributes" in body["spec"]:
-        return ret
+            namespace = ""
+            if "namespace" in ra:
+                namespace = ra["namespace"]
 
-    # Deny DENY-NAMESPACES as DENY-USERS
-    if "spec" in body and "user" in body["spec"] and body["spec"]["user"] in DENY_USERS:
-        if "resourceAttributes" in body["spec"] and "namespace" in body["spec"]["resourceAttributes"]:
-            if body["spec"]["resourceAttributes"]["namespace"] in DENY_NAMESPACES:
-                ret["status"] = {
-                    "allowed": False,
-                    "reason": "User " + body["spec"]["user"] + " cannot access resources in " +
-                        body["spec"]["resourceAttributes"]["namespace"]
-                }
-                return ret
+            # Namespaced Resources
+            if namespace:
+                if namespace not in DENY_NAMESPACES:
+                    ret["status"] = {
+                        "allowed": True
+                    }
+                else:
+                    ret["status"]["reason"] = "Resources in forbidden namespaces"
+
+            # Cluster resources
+            else:
+
+                if "resource" in ra:
+                    resource = ra["resource"]
+
+                    verb = ""
+                    if "verb" in ra:
+                        verb = ra["verb"]
+
+                    name = ""
+                    if "name" in ra:
+                        name = ra["name"]
+
+                    # Resource is namespace itself
+                    if resource == "namespaces" and name:
+                        if name not in DENY_NAMESPACES:
+                            ret["status"] = {
+                                "allowed": True
+                            }
+                        else:
+                            ret["status"]["reason"] = "Forbidden namespace"
+
+                    # List only cluster resources
+                    elif verb and verb == "list":
+                        if resource not in DENY_LIST_CLUSTER_RESOURCES:
+                            ret["status"] = {
+                                "allowed": True
+                            }
+                        else:
+                            ret["status"]["reason"] = "List-forbidden cluster resources"
+
+                    # Allowed cluster resources
+                    elif resource in ALLOW_CLUSTER_RESOURCES:
+                        ret["status"] = {
+                            "allowed": True
+                        }
+
+                    else:
+                        ret["status"]["reason"] = "Not allowed cluster resources"
+
+    log("Response : " + str(ret))
 
     return ret

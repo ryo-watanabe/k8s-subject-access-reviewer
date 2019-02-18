@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Config
+clusters:
+- name: subject-access-reviewer
+  cluster:
+    certificate-authority: /etc/kubernetes/review/ca.crt
+    server: https://localhost/hug/v1/review
+users:
+- name: kube-apiserver
+  user:
+    client-certificate: /etc/kubernetes/ssl/kube-apiserver.pem
+    client-key: /etc/kubernetes/ssl/kube-apiserver-key.pem
+current-context: webhook
+contexts:
+- context:
+    cluster: subject-access-reviewer
+    user: kube-apiserver
+  name: webhook

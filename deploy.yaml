@@ -9,20 +9,42 @@ spec:
       labels:
         app: subject-access-reviewer
     spec:
+      hostNetwork: true
       containers:
-        - name: hug-apiserver
-          image: [image]:[tag]
-          ports:
-          - containerPort: 8000
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: subject-access-reviewer
-  labels:
-    app: subject-access-reviewer
-spec:
-  ports:
-  - port: 8000
-  selector:
-    app: subject-access-reviewer
+      - name: access-reviewer-hug
+        image: fj3817ia/subject-reviewer:0.0.1
+        ports:
+        - containerPort: 8000
+        volumeMounts:
+        - mountPath: "/mnt"
+          name: apiserver-pi
+        command: ["hug","-f","/mnt/apiserver.py"]
+      - name: access-reviewer-nginx
+        image: nginx:1.14
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 443
+        volumeMounts:
+        - mountPath: "/etc/nginx"
+          name: config-volume
+        - mountPath: "/mnt"
+          name: tls
+      volumes:
+      - name: apiserver-pi
+        configMap:
+          name: apiserver-pi
+      - name: config-volume
+        configMap:
+          name: nginx-config
+      - name: tls
+        secret:
+          secretName: nginx-tls
+      tolerations:
+      - effect: NoExecute
+        key: node-role.kubernetes.io/etcd
+        value: "true"
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/controlplane
+        value: "true"
+      nodeSelector:
+        node-role.kubernetes.io/controlplane: "true"
