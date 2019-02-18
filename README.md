@@ -6,14 +6,19 @@ https://kubernetes.io/docs/reference/access-authn-authz/webhook/
 
 ### Settings (apiserver.py)
 
-|list|meanings|example|
+|List|Use for|Example|
 |---|---|---|
 |DENY_NAMESPACES|Namespaces to hide|["kube-system","kube-public"]|
 |ALLOW_CLUSTER_RESOURCES|R/W allowed cluster resources|["clusterrolebindings"]|
 |DENY_LIST_CLUSTER_RESOURCES|Forbidden resources even if the verb is 'list'|[]|
 |TARGET_USERS|Users, have no role bindings in RBAC|["system:serviceaccount:default:remote-user"]|
 
-### TLS secret
+### Configmap for apiserver.py
+````
+kubectl create cm apiserver-pi --from-file apiserver.py
+````
+
+### Configmap for tls secret
 ````
 openssl genrsa -out ca.key 2048
 openssl req -x509 -new -nodes -key ca.key -days 100000 -out ca.crt -subj "/CN=subject-access-reviewer-ca"
@@ -36,17 +41,12 @@ openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out s
 kubectl create secret tls nginx-tls --cert=server.crt --key=server.key
 ````
 
-### Configmap for apiserver.py
-````
-kubectl create cm apiserver-pi --from-file apiserver.py
-````
-
 ### Deploy reviewer on master as a pod
 ````
 kubectl apply -f deploy.yaml
 ````
 
-### Copy reviewer-config.yaml and cacert on master
+### Copy files on master
 ````
 /etc/kubernetes/review/ca.crt
 /etc/kubernetes/review/reviewer-config.yaml
