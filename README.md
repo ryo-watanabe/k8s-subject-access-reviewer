@@ -1,5 +1,18 @@
 # k8s-subject-access-reviewer
 
+### Webhook mode
+
+https://kubernetes.io/docs/reference/access-authn-authz/webhook/
+
+### Settings (apiserver.py)
+
+|list|meanings|example|
+|---|---|---|
+|DENY_NAMESPACES|Namespaces to hide|["kube-system","kube-public"]|
+|ALLOW_CLUSTER_RESOURCES|R/W allowed cluster resources|["clusterrolebindings"]|
+|DENY_LIST_CLUSTER_RESOURCES|Forbidden resources even if the verb is 'list'|[]|
+|TARGET_USERS|Users, have no role bindings in RBAC|["system:serviceaccount:default:remote-user"]|
+
 ### TLS secret
 ````
 openssl genrsa -out ca.key 2048
@@ -41,7 +54,7 @@ kubectl apply -f deploy.yaml
 
 ### Add options and restart kube-apiserver
 ````
---authorization-mode: "Node,RBAC,Webhook"
---authorization-webhook-config-file: "/etc/kubernetes/review/reviewer-config.yaml"
---runtime-config: "authorization.k8s.io/v1beta1=true"
+--authorization-mode=Node,RBAC,Webhook
+--authorization-webhook-config-file=/etc/kubernetes/review/reviewer-config.yaml
+--runtime-config=authorization.k8s.io/v1beta1=true
 ````
