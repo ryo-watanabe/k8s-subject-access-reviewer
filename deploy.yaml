@@ -12,7 +12,7 @@ spec:
       hostNetwork: true
       containers:
       - name: access-reviewer-hug
-        image: fj3817ia/subject-reviewer:0.0.1
+        image: [python-hug-image]:[tag]
         ports:
         - containerPort: 8000
         volumeMounts:
